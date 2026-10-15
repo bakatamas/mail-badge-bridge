@@ -1,0 +1,23 @@
+{
+  "manifest_version": 2,
+  "name": "Mail Badge Bridge",
+  "description": "Shows the total unread count of all your inboxes as a badge on the taskbar icon (Linux).",
+  "version": "1.0.0",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "mail-badge-bridge@celest-watches.com",
+      "strict_min_version": "128.0"
+    }
+  },
+  "permissions": [
+    "accountsRead",
+    "nativeMessaging"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "author": "Baka Tamás",
+  "homepage_url": "https://github.com/bakatamas/mail-badge-bridge"
+}

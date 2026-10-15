@@ -1,0 +1,3 @@
+*.xpi
+__pycache__/
+*.pyc
