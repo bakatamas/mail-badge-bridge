@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Mail Badge Bridge",
   "description": "Shows the total unread count of all your inboxes as a badge on the taskbar icon (Linux).",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "mail-badge-bridge@celest-watches.com",
