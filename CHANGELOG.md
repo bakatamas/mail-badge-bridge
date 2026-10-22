@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 — unreleased
+## 1.1.0 — 2026-10-22
 
 - Thunderbird is now the main target; Betterbird keeps working.
 - One install serves both apps: the helper detects which app started it and finds that app's launcher (several distro naming schemes are checked).
