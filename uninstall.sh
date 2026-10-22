@@ -6,5 +6,6 @@ set -euo pipefail
 rm -fv "$HOME/.local/bin/mail_badge_bridge.py" \
        "$HOME/.mozilla/native-messaging-hosts/mail_badge_bridge.json" \
        "${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/native-messaging-hosts/mail_badge_bridge.json"
+rm -rfv "${XDG_CONFIG_HOME:-$HOME/.config}/mail-badge-bridge"
 
-echo "Done. Also remove the add-on in Add-ons and Themes, then restart your mail app."
+echo "Done. Also remove the add-on in Add-ons and Themes, then close your mail app and open it again."

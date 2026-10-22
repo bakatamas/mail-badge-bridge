@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Mail Badge Bridge - native messaging host.
 
-Receives {"count": N} from the Betterbird/Thunderbird add-on and shows N as a
-taskbar badge via the Unity LauncherEntry D-Bus signal.
+Receives {"count": N} from the Thunderbird/Betterbird add-on and shows N as a
+taskbar badge via the Unity LauncherEntry D-Bus signal. It works out which of
+the two apps started it, so one install serves both.
 
 Plasma removes a badge when the D-Bus connection that sent it disconnects,
 so this helper keeps one session-bus connection open for its whole life
@@ -16,9 +17,60 @@ import struct
 import sys
 from urllib.parse import unquote
 
-# install.sh rewrites this line when you pick another mail app.
-APP_URI = "application://eu.betterbird.Betterbird.desktop"
 OBJECT_PATH = "/com/celestwatches/MailBadgeBridge"
+
+# The badge only shows on the taskbar icon whose launcher (.desktop file) name
+# matches, and distros name them differently. First one found wins.
+LAUNCHERS = {
+    "thunderbird": ["org.mozilla.Thunderbird.desktop", "thunderbird.desktop",
+                    "mozilla-thunderbird.desktop"],
+    "betterbird": ["eu.betterbird.Betterbird.desktop", "betterbird.desktop"],
+}
+# Optional overrides, one "app = name.desktop" per line (written by install.sh).
+CONFIG = os.path.join(os.environ.get("XDG_CONFIG_HOME")
+                      or os.path.expanduser("~/.config"),
+                      "mail-badge-bridge", "launchers.conf")
+
+
+# --- which launcher to badge -----------------------------------------------
+
+def detect_app():
+    """The mail app starts this helper directly, so the parent is the app."""
+    try:
+        exe = os.path.basename(os.readlink(f"/proc/{os.getppid()}/exe"))
+    except OSError:
+        exe = ""
+    return "betterbird" if "betterbird" in exe.lower() else "thunderbird"
+
+
+def read_overrides():
+    overrides = {}
+    try:
+        with open(CONFIG) as f:
+            for line in f:
+                app, sep, name = line.partition("=")
+                if sep and not app.strip().startswith("#"):
+                    overrides[app.strip().lower()] = name.strip()
+    except OSError:
+        pass
+    return overrides
+
+
+def find_launcher(app):
+    """Return (launcher name, whether it was found on disk)."""
+    name = read_overrides().get(app)
+    if name:
+        return name, True
+    data_dirs = [os.environ.get("XDG_DATA_HOME")
+                 or os.path.expanduser("~/.local/share")]
+    data_dirs += (os.environ.get("XDG_DATA_DIRS")
+                  or "/usr/local/share:/usr/share").split(":")
+    candidates = LAUNCHERS.get(app, LAUNCHERS["thunderbird"])
+    for name in candidates:
+        for d in data_dirs:
+            if os.path.isfile(os.path.join(d, "applications", name)):
+                return name, True
+    return candidates[0], False
 
 
 # --- minimal D-Bus wire protocol (little endian) ---------------------------
@@ -156,9 +208,9 @@ class SessionBus:
         finally:
             self.sock.setblocking(True)
 
-    def emit_badge(self, count):
+    def emit_badge(self, app_uri, count):
         w = _W()
-        w.string(APP_URI)
+        w.string(app_uri)
         props = [("count", "x", count), ("count-visible", "b", count > 0)]
 
         def write_entry(p):
@@ -182,7 +234,20 @@ def read_message():
 
 
 def main():
-    # If Betterbird kills the helper instead of closing stdin, still clear the badge.
+    # install.sh asks which launcher an app would use: --launcher thunderbird
+    if len(sys.argv) == 3 and sys.argv[1] == "--launcher":
+        name, found = find_launcher(sys.argv[2])
+        print(name)
+        sys.exit(0 if found else 1)
+
+    app = detect_app()
+    name, found = find_launcher(app)
+    app_uri = "application://" + name
+    # Shows up in the mail app's Error Console (Ctrl+Shift+J).
+    print(f"mail-badge-bridge: {app} badge on {name}"
+          + ("" if found else " (launcher not found)"), file=sys.stderr)
+
+    # If the mail app kills the helper instead of closing stdin, still clear the badge.
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     bus = SessionBus()
     try:
@@ -190,10 +255,10 @@ def main():
             msg = read_message()
             if msg is None:
                 break
-            bus.emit_badge(max(0, int(msg.get("count", 0))))
+            bus.emit_badge(app_uri, max(0, int(msg.get("count", 0))))
     finally:
         try:
-            bus.emit_badge(0)  # Betterbird closed: hide the badge
+            bus.emit_badge(app_uri, 0)  # mail app closed: hide the badge
         except OSError:
             pass
 
