@@ -1,3 +1,4 @@
 *.xpi
 __pycache__/
 *.pyc
+CLAUDE.md
